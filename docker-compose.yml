@@ -1,0 +1,52 @@
+version: '3.8'
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: betta_shop
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # Mount migrations so Postgres runs them at first initialization
+      - ./api-server/migrations:/docker-entrypoint-initdb.d:ro
+    ports:
+      - 5432:5432
+
+  mongo:
+    image: mongo:6
+    ports:
+      - 27017:27017
+    volumes:
+      - mongodata:/data/db
+
+  api:
+    build: ./api-server
+    env_file: ./api-server/.env.example
+    depends_on:
+      - postgres
+      - mongo
+    ports:
+      - 4000:4000
+    volumes:
+      - ./api-server:/app
+      # keep node_modules that were installed during image build
+      - api_node_modules:/app/node_modules
+
+  frontend:
+    image: node:20
+    working_dir: /app
+    volumes:
+      - ./:/app
+    command: sh -c "npm install && npm run dev"
+    ports:
+      - 3001:3000
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:4000
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
+  mongodata:
+  api_node_modules:
